@@ -1,0 +1,69 @@
+name: tests
+on:
+  push:
+  pull_request:
+  schedule:
+    - cron: "0 12 * * 1"  # weekly, catches drift in the public demo sites
+
+permissions:
+  contents: read
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+      - run: pip install -r requirements.txt
+      - run: playwright install --with-deps chromium
+      - name: Run tests (API + headless Chromium)
+        run: pytest
+      - name: Add environment info to the report
+        if: always()
+        run: |
+          mkdir -p reports/allure-results
+          {
+            echo "Browser=Chromium (headless, Playwright $(pip show playwright | sed -n 's/^Version: //p'))"
+            echo "Python=$(python --version)"
+            echo "OS=$(. /etc/os-release && echo "$PRETTY_NAME")"
+            echo "UI target=https://www.saucedemo.com"
+            echo "API target=https://jsonplaceholder.typicode.com"
+            echo "Run=${{ github.run_number }}"
+            echo "Commit=${GITHUB_SHA::7}"
+          } > reports/allure-results/environment.properties
+      - name: Build Allure report
+        if: always()
+        run: |
+          npm install -g allure-commandline
+          allure generate reports/allure-results -o reports/allure-report --clean
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: reports
+          path: |
+            reports/allure-results/
+            test-results/
+      - uses: actions/upload-pages-artifact@v3
+        if: always() && github.ref == 'refs/heads/main'
+        with:
+          path: reports/allure-report
+
+  # Publishes the report at https://<user>.github.io/<repo>/. Needs Settings > Pages > Source: GitHub Actions.
+  # continue-on-error keeps a Pages problem from turning the whole run red.
+  publish-report:
+    needs: test
+    if: always() && github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    continue-on-error: true
+    permissions:
+      pages: write
+      id-token: write
+    environment:
+      name: github-pages
+      url: ${{ steps.deploy.outputs.page_url }}
+    steps:
+      - id: deploy
+        uses: actions/deploy-pages@v4
