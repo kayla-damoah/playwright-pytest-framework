@@ -29,8 +29,8 @@ jobs:
             echo "Browser=Chromium (headless, Playwright $(pip show playwright | sed -n 's/^Version: //p'))"
             echo "Python=$(python --version)"
             echo "OS=$(. /etc/os-release && echo "$PRETTY_NAME")"
-            echo "UI target=https://www.saucedemo.com"
-            echo "API target=https://jsonplaceholder.typicode.com"
+            echo "UI_target=https://www.saucedemo.com"
+            echo "API_target=https://jsonplaceholder.typicode.com"
             echo "Run=${{ github.run_number }}"
             echo "Commit=${GITHUB_SHA::7}"
           } > reports/allure-results/environment.properties
